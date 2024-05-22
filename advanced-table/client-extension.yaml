@@ -1,0 +1,11 @@
+assemble:
+    - from: build/static
+      into: static
+my-app-custom-element-js:
+    url: js/main.*.js
+    type: globalJS
+    name: Advanced Table JS
+my-app-custom-element-css:
+    url: css/main.*.css
+    type: globalCSS
+    name: Advanced Table CSS
