@@ -1,8 +1,13 @@
 import React from 'react';
-import App from './App';
 import ReactDOM from 'react-dom';
+import CustomDataTable from './CustomDataTable';
+import DocumentService from './services/DocumentService';
 
 class WebComponent extends HTMLElement {
+
+    username = 'test@liferay.com';
+    password = 'test1234';
+    authString = `${this.username}:${this.password}`;
 
     constructor() {
         super();
@@ -33,7 +38,11 @@ class WebComponent extends HTMLElement {
         });
 
         ReactDOM.render(
-            <App baseUrl={baseUrl} apiUrl={apiUrl} fields={fields} />,
+            <CustomDataTable
+                baseUrl={baseUrl}
+                apiUrl={apiUrl}
+                fields={fields}
+                documentService={new DocumentService(this.authString)} />,
             this
         );
     }
