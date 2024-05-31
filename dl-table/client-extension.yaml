@@ -9,3 +9,10 @@ dl-table-custom-element-css:
     url: css/main.*.css
     type: globalCSS
     name: DL Table CSS
+dl-table-custom-element-user-agent:
+    .serviceAddress: localhost:8080
+    .serviceScheme: http
+    name: DL Table Custom Element User Agent
+    scopes:
+        - Liferay.Headless.Delivery.everything
+    type: oAuthApplicationUserAgent

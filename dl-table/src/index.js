@@ -6,6 +6,7 @@ import DocumentFolderService from './services/DocumentFolderService';
 
 class WebComponent extends HTMLElement {
 
+    /* For Local Testing */
     username = 'test@liferay.com';
     password = 'test1234';
     authString = `${this.username}:${this.password}`;

@@ -74,16 +74,31 @@ class DocumentService {
             }
         }
 
-        return fetch(url, {
-            method: "GET",
-            headers: headers
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok ' + response.statusText);
-            }
-            return response.json();
-        }).then(data => {
+        let call;
+
+        if(window.Liferay !== undefined) {
+
+            call = window.Liferay.OAuth2Client
+                .FromUserAgentApplication("dl-table-custom-element-user-agent")
+                .fetch(url);
+
+        } else {
+            let headers = new Headers();
+            headers.set('Authorization', 'Basic ' + btoa(this.authString))
+
+            call = fetch(url, {
+                method: "GET",
+                headers: headers
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            });
+
+        }
+
+        return call.then(data => {
             console.log("Caching entry");
             this.cache[url] = {
                 data: data,
