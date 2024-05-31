@@ -1,4 +1,5 @@
 import DocumentServiceHelper from './DocumentServiceHelper';
+import ServiceConstants from '../constants/ServiceConstants';
 
 class DocumentService {
 
@@ -8,15 +9,29 @@ class DocumentService {
         this.cacheDuration = 10 * 60 * 1000;
     }
 
-    loadData(baseURL, fields, filters, sortField, sortOrder, page, pageSize, folderId, all, forceRefresh) {
+    getValuesForField(baseURL, fields, staticFilters, folderId, fieldName, forceRefresh) {
 
-        let headers = new Headers();
-        headers.set('Authorization', 'Basic ' + btoa(this.authString))
+        let url = baseURL + folderId + "/documents";
+        url = url + "?page=" + 1 + "&pageSize=" + ServiceConstants.MAX_PAGESIZE + "&fields=" + fieldName;
+
+        const filterString = DocumentServiceHelper.getFilterString(fields, staticFilters, false);
+
+        console.log("Filter string: " + filterString);
+
+        if(filterString !== "") {
+            url = url + "&filter=" + filterString;
+        }
+
+        this.makeCall(url, forceRefresh);
+
+    }
+
+    loadData(baseURL, fields, filters, sortField, sortOrder, page, pageSize, folderId, all, forceRefresh) {
 
         let url = baseURL + folderId + "/documents";
 
         if(all) {
-            url = url + "?page=" + 1 + "&pageSize=200&fields=" + fields.map(field => field.field).join(',') + ",documentType.contentFields";
+            url = url + "?page=" + 1 + "&pageSize=" + ServiceConstants.MAX_PAGESIZE + "&fields=" + fields.map(field => field.field).join(',') + ",documentType.contentFields";
         } else {
             url = url + "?page=" + page + "&pageSize=" + pageSize + "&fields=" + fields.map(field => field.field).join(',') + ",documentType.contentFields";
             if(sortField !== null) {
@@ -32,6 +47,17 @@ class DocumentService {
             url = url + "&filter=" + filterString;
         }
         
+        return this.makeCall(url, forceRefresh);
+
+    }
+
+    makeCall(url, forceRefresh) {
+
+        console.log("URL: " + url);
+
+        let headers = new Headers();
+        headers.set('Authorization', 'Basic ' + btoa(this.authString))
+
         console.log("URL: " + url);
 
         if(!forceRefresh) {

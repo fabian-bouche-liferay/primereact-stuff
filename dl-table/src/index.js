@@ -10,10 +10,6 @@ class WebComponent extends HTMLElement {
     password = 'test1234';
     authString = `${this.username}:${this.password}`;
 
-    constructor() {
-        super();
-    }
-
     connectedCallback() {
         this.render();
     }
@@ -25,6 +21,7 @@ class WebComponent extends HTMLElement {
     render() {
 
         const folderId = this.getAttribute('folderid');
+
         const baseUrl = "http://localhost:8080";
         const apiUrl = baseUrl + "/o/headless-delivery/v1.0/document-folders/";
 
@@ -38,11 +35,8 @@ class WebComponent extends HTMLElement {
             });
         });
 
-        const staticFilters = [];
-
         ReactDOM.render(
             <CustomDataTable
-                staticFilters={staticFilters}
                 baseUrl={baseUrl}
                 apiUrl={apiUrl}
                 fields={fields}
@@ -51,6 +45,7 @@ class WebComponent extends HTMLElement {
                 documentService={new DocumentService(this.authString)} />,
             this
         );
+
     }
 
     disconnectedCallback() {

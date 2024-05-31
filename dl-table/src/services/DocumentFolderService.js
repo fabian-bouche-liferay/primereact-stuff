@@ -1,5 +1,6 @@
 import DocumentServiceHelper from './DocumentServiceHelper';
 import DocumentFolderColumns from '../constants/DocumentFolderColumns'
+import ServiceConstants from '../constants/ServiceConstants';
 
 class DocumentFolderService {
 
@@ -9,10 +10,29 @@ class DocumentFolderService {
         this.cacheDuration = 10 * 60 * 1000;
     }
 
-    loadData(baseURL, fields, filters, sortField, sortOrder, page, pageSize, folderId, all, forceRefresh) {
+    getCurrentFolder(baseURL, folderId, forceRefresh) {
+        let url = baseURL + folderId;
+        return this.makeCall(url, forceRefresh);
+    }
 
-        let headers = new Headers();
-        headers.set('Authorization', 'Basic ' + btoa(this.authString))
+    getValuesForField(baseURL, fields, staticFilters, folderId, fieldName, forceRefresh) {
+
+        let url = baseURL + folderId + "/document-folders";
+        url = url + "?page=" + 1 + "&pageSize=" + ServiceConstants.MAX_PAGESIZE + "&fields=" + fieldName;
+
+        const filteredFilters = this.getFilteredFilters(staticFilters);
+
+        const filterString = DocumentServiceHelper.getFilterString(fields, filteredFilters, true);
+        
+        if(filterString !== "") {
+            url = url + "&filter=" + filterString;
+        }
+
+        return this.makeCall(url, forceRefresh);
+
+    }
+
+    loadData(baseURL, fields, filters, sortField, sortOrder, page, pageSize, folderId, all, forceRefresh) {
 
         let url = baseURL + folderId + "/document-folders";
 
@@ -20,16 +40,10 @@ class DocumentFolderService {
 
         let filteredFields = fields.filter(item => DocumentFolderColumns.ALLOWED.includes(item.field));
 
-        const filteredFilters = {};
-
-        Object.entries(filters).forEach(([id, element]) => {
-            if(DocumentFolderColumns.ALLOWED.includes(id)) {
-                filteredFilters[id] = element;
-            }
-        });
+        const filteredFilters = this.getFilteredFilters(filters);
 
         if(all) {
-            url = url + "?page=" + 1 + "&pageSize=200&fields=" + filteredFields.map(field => field.field === "title" ? "name" : field.field).join(',');
+            url = url + "?page=" + 1 + "&pageSize=" + ServiceConstants.MAX_PAGESIZE + "&fields=" + filteredFields.map(field => field.field === "title" ? "name" : field.field).join(',');
         } else {
             url = url + "?page=" + page + "&pageSize=" + pageSize + "&fields=" + filteredFields.map(field => field.field === "title" ? "name" : field.field).join(',');
             if(sortField !== null) {
@@ -41,7 +55,26 @@ class DocumentFolderService {
         if(filterString !== "") {
             url = url + "&filter=" + filterString;
         }
+
+        return this.makeCall(url, forceRefresh);
+    }
+
+    getFilteredFilters(filters) {
+        const filteredFilters = {};
+
+        Object.entries(filters).forEach(([id, element]) => {
+            if(DocumentFolderColumns.ALLOWED.includes(id)) {
+                filteredFilters[id] = element;
+            }
+        });
+        return filteredFilters;
+    }
+
+    makeCall(url, forceRefresh) {
         
+        let headers = new Headers();
+        headers.set('Authorization', 'Basic ' + btoa(this.authString))
+
         if(!forceRefresh) {
             console.log("Looking for cache entry");
             const cachedEntry = this.cache[url];
@@ -73,7 +106,9 @@ class DocumentFolderService {
             };
 
             const {items} = data;
-            data.items = DocumentServiceHelper.replaceNameWithTitle(items);
+            if(items !== undefined) {
+                data.items = DocumentServiceHelper.replaceNameWithTitle(items);
+            }
 
             return data;
         });

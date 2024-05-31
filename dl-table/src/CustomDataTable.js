@@ -4,6 +4,7 @@ import { Column } from 'primereact/column';
 import { FilterMatchMode } from 'primereact/api';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
+import { Button } from 'primereact/button';
 import { Calendar } from 'primereact/calendar';
 import { FilterService } from 'primereact/api';
 import 'primereact/resources/themes/saga-blue/theme.css';
@@ -14,6 +15,9 @@ import MatchModesConfiguration from './constants/MatchModesConfiguration';
 import DocumentFolderColumns from './constants/DocumentFolderColumns'
 
 function CustomDataTable(props) {
+
+    const [documentsHeader, setDocumentsHeader] = useState(<h2>Documents</h2>);
+    const [foldersHeader, setFoldersHeader] = useState(<h2>Subfolders</h2>);
 
     const [columns, setColumns] = useState([]);
     const [elements, setElements] = useState([]);
@@ -34,6 +38,7 @@ function CustomDataTable(props) {
     const [filters, setFilters] = useState({});
 
     const [currentFolderId, setCurrentFolderId] = useState(props.folderId);
+    const [parentFolderIds, setParentFolderIds] = useState([]);
 
     const [totalRecords, setTotalRecords] = useState(0);
     const [folderTotalRecords, setFolderTotalRecords] = useState(0);
@@ -113,9 +118,39 @@ function CustomDataTable(props) {
             });    
         });
 
+        props.documentFolderService.getCurrentFolder(props.apiUrl, currentFolderId, true).then(data => {
+            if(parentFolderIds.length > 0) {
+                setFoldersHeader(
+                    <div>
+                        <h2>Subfolders of {data.name}</h2>
+                        <Button label="Go to parent folder" link onClick={() => goToParentFolder()}></Button>
+                    </div>
+                );
+                setDocumentsHeader(
+                    <div>
+                        <h2>Documents of {data.name}</h2>
+                        <Button label="Go to parent folder" link onClick={() => goToParentFolder()}></Button>
+                    </div>
+                );
+            } else {
+                setFoldersHeader(
+                    <div>
+                        <h2>Subfolders of {data.name}</h2>
+                    </div>
+                );
+                setDocumentsHeader(
+                    <div>
+                        <h2>Documents of {data.name}</h2>
+                    </div>
+                );                
+            }
+            
+        })
+        .catch(error => console.error('Error:', error));
+
         setFilters(initFilters);
 
-    }, [props.fields]);
+    }, [props.fields, currentFolderId]);
 
     useEffect(() => {
 
@@ -153,7 +188,24 @@ function CustomDataTable(props) {
     }
 
     const onChangeFolder = (e) => {
+        
+        const newParentFolderIds = [...parentFolderIds];
+        newParentFolderIds.push(currentFolderId);
+
+        setParentFolderIds(newParentFolderIds);
         setCurrentFolderId(e.data.id);
+    }
+
+    const goToParentFolder = () => {
+
+        if(parentFolderIds.length > 0) {
+            const newParentFolderIds = [...parentFolderIds];
+            const lastItem = newParentFolderIds.pop();
+    
+            setParentFolderIds(newParentFolderIds);
+            setCurrentFolderId(lastItem);
+        }
+
     }
 
     const filterTemplate = (options) => {
@@ -216,7 +268,7 @@ function CustomDataTable(props) {
         <div>
             <DataTable 
                 {...(lazy && { lazy: true })}
-                header="Folders"
+                header={foldersHeader}
                 dataKey="id"
                 value={folderElements} 
                 tableStyle={{ minWidth: '50rem' }}
@@ -274,9 +326,10 @@ function CustomDataTable(props) {
 
                 })}
             </DataTable>
+            
             <DataTable 
                 {...(lazy && { lazy: true })}
-                header="Documents"
+                header={documentsHeader}
                 dataKey="id"
                 value={elements} 
                 tableStyle={{ minWidth: '50rem' }}
