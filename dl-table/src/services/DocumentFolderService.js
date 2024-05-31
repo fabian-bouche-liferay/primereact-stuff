@@ -33,7 +33,7 @@ class DocumentFolderService {
         } else {
             url = url + "?page=" + page + "&pageSize=" + pageSize + "&fields=" + filteredFields.map(field => field.field === "title" ? "name" : field.field).join(',');
             if(sortField !== null) {
-                url = url + "&sort=" + sortField + ":" + ( sortOrder === 1 ? "asc" : "desc" );
+                url = url + "&sort=" + (sortField === "title" ? "name" : sortField) + ":" + ( sortOrder === 1 ? "asc" : "desc" );
             }
         }
 
