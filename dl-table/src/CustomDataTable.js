@@ -11,24 +11,85 @@ import 'primereact/resources/primereact.min.css';
 
 import CustomFilterMatchMode from './constants/CustomFilterMatchMode';
 import MatchModesConfiguration from './constants/MatchModesConfiguration';
+import DocumentFolderColumns from './constants/DocumentFolderColumns'
 
 function CustomDataTable(props) {
 
     const [columns, setColumns] = useState([]);
     const [elements, setElements] = useState([]);
+    const [folderElements, setFolderElements] = useState([]);
 
     const [lazy, setLazy] = useState(true);
 
     const [first, setFirst] = useState(0);
+    const [folderFirst, setFolderFirst] = useState(0);
     const [page, setPage] = useState(1);
+    const [folderPage, setFolderPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
+    const [folderPageSize, setFolderPageSize] = useState(5);
 
     const [sortField, setSortField] = useState(null);
     const [sortOrder, setSortOrder] = useState("asc");
 
     const [filters, setFilters] = useState({});
-    
-    const [totalRecords, setTotalRecords] = useState(1);
+
+    const [currentFolderId, setCurrentFolderId] = useState(props.folderId);
+
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [folderTotalRecords, setFolderTotalRecords] = useState(0);
+
+    const isLocal = () => {
+
+        let res = false;
+
+        if(sortField !== null) {
+            const browserSideSortAndFilter = props.fields.find(item => item.field === sortField).browserSideSortAndFilter === true;
+            if(browserSideSortAndFilter) {
+                res = true;
+            }    
+        }
+
+        Object.entries(filters).forEach(([id, element]) => {
+            const browserSideSortAndFilter = props.fields.find(item => item.field === id).browserSideSortAndFilter === true;
+            if(element.value !== null && browserSideSortAndFilter) {
+                res = true;
+            }            
+        });
+        
+        return res;
+    }
+
+    const loadData = (all) => {
+
+        let folderTotalRecords = 0;
+        let folderElements = [];
+
+        let documentTotalRecords = 0;
+        let documentElements = [];
+
+        let folderPromise = props.documentFolderService.loadData(props.apiUrl, props.fields, filters, sortField, sortOrder, folderPage, folderPageSize, currentFolderId, all, false);
+        let documentPromise = props.documentService.loadData(props.apiUrl, props.fields, filters, sortField, sortOrder, page, pageSize, currentFolderId, all, false);
+
+        folderPromise.then(data => {
+            folderTotalRecords = data.totalCount;
+            folderElements = data.items;
+
+            setFolderTotalRecords(folderTotalRecords);
+            setFolderElements(folderElements);
+
+        })
+        .catch(error => console.error('Error:', error));
+
+        documentPromise.then(data => {
+            documentTotalRecords = data.totalCount;
+            documentElements = data.items;
+
+            setTotalRecords(documentTotalRecords);
+            setElements(documentElements);
+        })
+        .catch(error => console.error('Error:', error));
+
+    }
 
     useEffect(() => {
         setColumns(props.fields);
@@ -58,7 +119,7 @@ function CustomDataTable(props) {
 
     useEffect(() => {
 
-        console.log("Filters: "+  JSON.stringify(filters));
+        console.log("### Filters: "+  JSON.stringify(filters));
 
         if(isLocal()) {
             setLazy(false);
@@ -68,41 +129,18 @@ function CustomDataTable(props) {
             loadData(false);
         }
 
-    }, [columns, first, pageSize, sortField, sortOrder, filters]);
-
-    const isLocal = () => {
-
-        if(sortField !== null) {
-            const browserSideSortAndFilter = props.fields.find(item => item.field === sortField).browserSideSortAndFilter === true;
-            if(browserSideSortAndFilter) {
-                return true;
-            }    
-        }
-
-        Object.entries(filters).forEach(([id, element]) => {
-            const browserSideSortAndFilter = props.fields.find(item => item.field === id).browserSideSortAndFilter === true;
-            if(element.value !== null && browserSideSortAndFilter) {
-                return true;
-            }            
-        });
-        
-        return false;
-    }
-
-    const loadData = (all) => {
-        props.documentService.loadData(props.apiUrl, props.fields, filters, sortField, sortOrder, page, pageSize, all, false).then(data => {
-            let updatedItems = data.items;
-            setTotalRecords(data.totalCount);
-            let transformedArray = transformJsonArray(updatedItems);
-            setElements(transformedArray);
-        })
-        .catch(error => console.error('Error:', error));;
-    }
+    }, [currentFolderId, columns, folderFirst, first, folderPageSize, pageSize, sortField, sortOrder, filters]);
 
     const onPage = (e) => {
         setPage(e.page + 1);
         setPageSize(e.rows);
         setFirst(e.page * pageSize);
+    }
+
+    const onFolderPage = (e) => {
+        setFolderPage(e.page + 1);
+        setFolderPageSize(e.rows);
+        setFolderFirst(e.page * folderPageSize);
     }
 
     const onSort = (e) => {
@@ -112,6 +150,10 @@ function CustomDataTable(props) {
 
     const onFilter = (e) => {
         setFilters(e.filters);
+    }
+
+    const onChangeFolder = (e) => {
+        setCurrentFolderId(e.data.id);
     }
 
     const filterTemplate = (options) => {
@@ -153,22 +195,6 @@ function CustomDataTable(props) {
         return <img src={props.baseUrl + rowData[fieldName]} alt="Preview" style={{ width: '50px', height: '50px' }} />;
     };
 
-    function transformJsonItem(item) {
-        const { documentType } = item;
-        const { contentFields } = documentType;
-      
-        contentFields.forEach(field => {
-          documentType[field.name] = field.contentFieldValue.data;
-        });
-
-        return item;
-    }
-      
-    function transformJsonArray(jsonArray) {
-        let transformed = jsonArray.map(transformJsonItem)
-        return transformed;
-    }
-
     const defaultDateIsFilter = FilterService.filters[FilterMatchMode.DATE_IS];
     FilterService.register(CustomFilterMatchMode.DATE_IS, (value, filters) => {
         return defaultDateIsFilter(new Date(value), filters);
@@ -187,64 +213,125 @@ function CustomDataTable(props) {
     });
 
     return (
-        <DataTable 
-            {...(lazy && { lazy: true })}
-            dataKey="id"
-            value={elements} 
-            tableStyle={{ minWidth: '50rem' }}
-            totalRecords={totalRecords}
-            filters={filters}
-            paginator rows={pageSize} rowsPerPageOptions={[5, 10, 25, 50]}
-            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-            first={first}
-            onPage={onPage}
-            onSort={onSort}
-            removableSort 
-            sortField={sortField}
-            sortOrder={sortOrder}            
-            onFilter={onFilter}
-            filterDisplay="menu"
-        >
-            {columns.map(({ field, header, datatype, browserSideSortAndFilter}) => {
+        <div>
+            <DataTable 
+                {...(lazy && { lazy: true })}
+                header="Folders"
+                dataKey="id"
+                value={folderElements} 
+                tableStyle={{ minWidth: '50rem' }}
+                totalRecords={folderTotalRecords}
+                filters={filters}
+                paginator rows={folderPageSize} rowsPerPageOptions={[5, 10, 25, 50]}
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                first={folderFirst}
+                onPage={onFolderPage}
+                onSort={onSort}
+                removableSort 
+                sortField={sortField}
+                sortOrder={sortOrder}            
+                onFilter={onFilter}
+                filterDisplay="menu"
+                selectionMode="single"
+                onRowSelect={onChangeFolder}
+            >
+                {columns.filter(({ field, header, datatype, browserSideSortAndFilter}) => DocumentFolderColumns.ALLOWED.includes(field))
+                    .map(({ field, header, datatype, browserSideSortAndFilter}) => {
 
-                if(datatype === "image") {
+                    if(datatype === "image") {
 
-                    return <Column key={field}
-                        header={header}
-                        body={imageBodyTemplate(field)}
-                        style={{ width: '25%' }} 
-                    />;
+                        return <Column key={field}
+                            header={header}
+                            body={imageBodyTemplate(field)}
+                        />;
 
 
-                } else {
-
-                    let matchModeOptions;
-
-                    if(datatype === "date") {
-                        matchModeOptions = MatchModesConfiguration.DATE;
-                    } else if (datatype === "numeric") {
-                        matchModeOptions = MatchModesConfiguration.NUMERIC;
                     } else {
-                        matchModeOptions = MatchModesConfiguration.TEXT;
+
+                        let matchModeOptions;
+
+                        if(datatype === "date") {
+                            matchModeOptions = MatchModesConfiguration.DATE;
+                        } else if (datatype === "numeric") {
+                            matchModeOptions = MatchModesConfiguration.NUMERIC;
+                        } else {
+                            matchModeOptions = MatchModesConfiguration.TEXT;
+                        }
+
+                        return <Column key={field}
+                            sortable 
+                            filter 
+                            filterElement={filterTemplate}
+                            showFilterMatchModes={true}
+                            showFilterMenu={true}
+                            filterMatchModeOptions={matchModeOptions}
+                            field={field}
+                            header={header}
+                            dataType={datatype}
+                        />;
+
                     }
 
-                    return <Column key={field}
-                        sortable 
-                        filter 
-                        filterElement={filterTemplate}
-                        showFilterMatchModes={true}
-                        showFilterMenu={true}
-                        filterMatchModeOptions={matchModeOptions}
-                        field={field}
-                        header={header}
-                        dataType={datatype}
-                        style={{ width: '25%' }} 
-                    />;
+                })}
+            </DataTable>
+            <DataTable 
+                {...(lazy && { lazy: true })}
+                header="Documents"
+                dataKey="id"
+                value={elements} 
+                tableStyle={{ minWidth: '50rem' }}
+                totalRecords={totalRecords}
+                filters={filters}
+                paginator rows={pageSize} rowsPerPageOptions={[5, 10, 25, 50]}
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                first={first}
+                onPage={onPage}
+                onSort={onSort}
+                removableSort 
+                sortField={sortField}
+                sortOrder={sortOrder}            
+                onFilter={onFilter}
+                filterDisplay="menu"
+            >
+                {columns.map(({ field, header, datatype, browserSideSortAndFilter}) => {
 
-                }
+                    if(datatype === "image") {
 
-            })}
-        </DataTable>
+                        return <Column key={field}
+                            header={header}
+                            body={imageBodyTemplate(field)}
+                        />;
+
+
+                    } else {
+
+                        let matchModeOptions;
+
+                        if(datatype === "date") {
+                            matchModeOptions = MatchModesConfiguration.DATE;
+                        } else if (datatype === "numeric") {
+                            matchModeOptions = MatchModesConfiguration.NUMERIC;
+                        } else {
+                            matchModeOptions = MatchModesConfiguration.TEXT;
+                        }
+
+                        return <Column key={field}
+                            sortable 
+                            filter 
+                            filterElement={filterTemplate}
+                            showFilterMatchModes={true}
+                            showFilterMenu={true}
+                            filterMatchModeOptions={matchModeOptions}
+                            field={field}
+                            header={header}
+                            dataType={datatype}
+                        />;
+
+                    }
+
+                })}
+            </DataTable>
+        </div>
     );
 
 

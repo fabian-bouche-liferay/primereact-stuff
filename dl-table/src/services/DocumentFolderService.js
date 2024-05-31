@@ -1,6 +1,7 @@
 import DocumentServiceHelper from './DocumentServiceHelper';
+import DocumentFolderColumns from '../constants/DocumentFolderColumns'
 
-class DocumentService {
+class DocumentFolderService {
 
     constructor(authString) {
         this.authString = authString;
@@ -13,27 +14,34 @@ class DocumentService {
         let headers = new Headers();
         headers.set('Authorization', 'Basic ' + btoa(this.authString))
 
-        let url = baseURL + folderId + "/documents";
+        let url = baseURL + folderId + "/document-folders";
+
+        console.log("FOLDER - fields: " + fields);
+
+        let filteredFields = fields.filter(item => DocumentFolderColumns.ALLOWED.includes(item.field));
+
+        const filteredFilters = {};
+
+        Object.entries(filters).forEach(([id, element]) => {
+            if(DocumentFolderColumns.ALLOWED.includes(id)) {
+                filteredFilters[id] = element;
+            }
+        });
 
         if(all) {
-            url = url + "?page=" + 1 + "&pageSize=200&fields=" + fields.map(field => field.field).join(',') + ",documentType.contentFields";
+            url = url + "?page=" + 1 + "&pageSize=200&fields=" + filteredFields.map(field => field.field === "title" ? "name" : field.field).join(',');
         } else {
-            url = url + "?page=" + page + "&pageSize=" + pageSize + "&fields=" + fields.map(field => field.field).join(',') + ",documentType.contentFields";
+            url = url + "?page=" + page + "&pageSize=" + pageSize + "&fields=" + filteredFields.map(field => field.field === "title" ? "name" : field.field).join(',');
             if(sortField !== null) {
                 url = url + "&sort=" + sortField + ":" + ( sortOrder === 1 ? "asc" : "desc" );
             }
         }
 
-        const filterString = DocumentServiceHelper.getFilterString(fields, filters, false);
-
-        console.log("Filter string: " + filterString);
-
+        const filterString = DocumentServiceHelper.getFilterString(fields, filteredFilters, true);
         if(filterString !== "") {
             url = url + "&filter=" + filterString;
         }
         
-        console.log("URL: " + url);
-
         if(!forceRefresh) {
             console.log("Looking for cache entry");
             const cachedEntry = this.cache[url];
@@ -65,7 +73,7 @@ class DocumentService {
             };
 
             const {items} = data;
-            data.items = DocumentServiceHelper.flattenDocumentType(items);
+            data.items = DocumentServiceHelper.replaceNameWithTitle(items);
 
             return data;
         });
@@ -74,4 +82,4 @@ class DocumentService {
 
 }
 
-export default DocumentService;
+export default DocumentFolderService;

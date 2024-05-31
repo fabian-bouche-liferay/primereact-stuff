@@ -11,12 +11,15 @@ class DocumentServiceHelper {
         return `${year}-${month}-${day}`;
     }
 
-    static getFilterString(fields, filters) {
+    static getFilterString(fields, filters, isFolder) {
+
+        console.log("Get Filter String: " + JSON.stringify(fields) + " --- " + JSON.stringify(filters));
 
         let filterQueries = [];
         Object.entries(filters).forEach(([id, element]) => {
             const datatype = fields.find(item => item.field === id).datatype;
             const browserSideSortAndFilter = fields.find(item => item.field === id).browserSideSortAndFilter === true;
+            if(isFolder && id === "title") id = "name";
             if(element.value !== null && !browserSideSortAndFilter) {
                 if(element.matchMode === FilterMatchMode.EQUALS && datatype === "text") {
                     filterQueries.push(id + "%20eq%20'" + element.value + "'");
@@ -59,7 +62,35 @@ class DocumentServiceHelper {
         return filterQueries.join("%20and%20");
 
     }
+    
+    static flattenDocumentTypeItem(item) {
+        const { documentType } = item;
+        const { contentFields } = documentType;
+      
+        contentFields.forEach(field => {
+          documentType[field.name] = field.contentFieldValue.data;
+        });
 
+        return item;
+    }
+      
+    static flattenDocumentType(jsonArray) {
+        let transformed = jsonArray.map(this.flattenDocumentTypeItem)
+        return transformed;
+    }
+
+    static replaceNameWithTitleItem(item) {
+        if(item.name !== undefined) {
+            item.title = item.name;
+            item.name = undefined;            
+        }
+        return item;
+    }
+      
+    static replaceNameWithTitle(jsonArray) {
+        let transformed = jsonArray.map(this.replaceNameWithTitleItem)
+        return transformed;
+    }
 }
 
 export default DocumentServiceHelper;
